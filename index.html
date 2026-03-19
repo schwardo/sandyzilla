@@ -596,6 +596,13 @@ function areAdjacent(i, j) {
     }
   }
 
+  // Check wrap-around: last active cell to first active cell
+  let first = 0;
+  while (first < cells.length && cells[first].cleared) first++;
+  let last = cells.length - 1;
+  while (last >= 0 && cells[last].cleared) last--;
+  if (first !== last && ((i === first && j === last) || (i === last && j === first))) return true;
+
   return false;
 }
 
@@ -616,6 +623,7 @@ function clearPair(i, j) {
   selected = null;
   render();
   saveState();
+  hapticTap();
 
 }
 
@@ -717,6 +725,22 @@ function compactGrid() {
   saveState();
 
   showToast(`Compacted: removed ${removed} empty cell${removed !== 1 ? 's' : ''}`);
+}
+
+let audioCtx = null;
+function hapticTap() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = 150;
+    gain.gain.value = 0.15;
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.04);
+  } catch (e) {}
 }
 
 function showToast(msg) {
