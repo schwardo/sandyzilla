@@ -61,6 +61,40 @@ header h1 {
 .btn-restart { background: #e94560; color: #fff; }
 .btn-action { background: #0f3460; color: #aaa; border: 1px solid #333 !important; }
 .btn-action.active { background: #533483; color: #fff; border-color: #533483 !important; }
+.tools-wrapper {
+  position: relative;
+  flex: 1;
+}
+.tools-wrapper .btn-action { width: 100%; }
+.tools-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  margin-top: 6px;
+  overflow: hidden;
+  z-index: 5;
+}
+.tools-menu.open { display: block; }
+.tools-menu button {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #0f3460;
+  color: #ccc;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.tools-menu button:last-child { border-bottom: none; }
+.tools-menu button:active { background: #0f3460; }
 
 #grid-container {
   flex: 1;
@@ -70,7 +104,7 @@ header h1 {
 }
 #grid {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
+  grid-template-columns: repeat(8, 1fr);
   gap: 4px;
   max-width: 500px;
   margin: 0 auto;
@@ -283,11 +317,16 @@ header h1 {
 
 <div class="actions">
   <button class="btn-restart" onclick="restartGame()">New Game</button>
-  <button class="btn-action" id="btn-hint" onclick="showHint()">Hint</button>
   <button class="btn-action" id="btn-undo" onclick="undoMove()">Undo</button>
-  <button class="btn-action" id="btn-swap" onclick="toggleSwapMode()">Swap</button>
-  <button class="btn-action" id="btn-compact" onclick="compactGrid()">Compact</button>
   <button class="btn-action" id="btn-addrows" onclick="addRows()">Add Rows</button>
+  <div class="tools-wrapper">
+    <button class="btn-action" id="btn-tools" onclick="toggleToolsMenu()">Tools</button>
+    <div class="tools-menu" id="tools-menu">
+      <button onclick="toolAction(showHint)">Hint</button>
+      <button onclick="toolAction(toggleSwapMode)">Swap</button>
+      <button onclick="toolAction(compactGrid)">Compact</button>
+    </div>
+  </div>
   <button class="btn-action" id="btn-stats" onclick="showStats()">Stats</button>
 </div>
 
@@ -296,7 +335,7 @@ header h1 {
 </div>
 
 <script>
-const COLS = 10;
+const COLS = 8;
 const CELL_COLORS = [
   '#0f3460', '#1a5c2a', '#5c1a4e', '#4a3b0f', '#1a3f5c',
   '#5c2a1a', '#2a1a5c', '#3b5c0f', '#5c0f3b', '#0f5c4a',
@@ -362,8 +401,6 @@ function initGame() {
   currentColorIdx = 0;
   swapMode = false;
   swapFirst = null;
-  const swapBtn = document.getElementById('btn-swap');
-  if (swapBtn) swapBtn.classList.remove('active');
 
   stats = newStats();
 
@@ -382,8 +419,6 @@ function resumeGame() {
   swapFirst = null;
   document.getElementById('move-count').textContent = moves;
 
-  const swapBtn = document.getElementById('btn-swap');
-  if (swapBtn) swapBtn.classList.remove('active');
   render();
 
 }
@@ -458,13 +493,23 @@ function onCellClick(idx) {
   }
 }
 
+function toggleToolsMenu() {
+  const menu = document.getElementById('tools-menu');
+  menu.classList.toggle('open');
+}
+
+function toolAction(fn) {
+  document.getElementById('tools-menu').classList.remove('open');
+  fn();
+}
+
 function toggleSwapMode() {
   swapMode = !swapMode;
   swapFirst = null;
   selected = null;
-  document.getElementById('btn-swap').classList.toggle('active', swapMode);
   render();
   if (swapMode) showToast('Swap mode: tap two cells to swap');
+  else showToast('Swap mode off');
 }
 
 function onSwapClick(idx) {
@@ -772,6 +817,12 @@ function restartGame() {
   document.querySelectorAll('.win-overlay').forEach(e => e.remove());
   initGame();
 }
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.tools-wrapper')) {
+    document.getElementById('tools-menu').classList.remove('open');
+  }
+});
 
 if (loadState()) {
   resumeGame();
