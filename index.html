@@ -328,7 +328,7 @@ header h1 {
     <button class="btn-action" id="btn-tools" onclick="toggleToolsMenu()">Help</button>
     <div class="tools-menu" id="tools-menu">
       <button onclick="toolAction(showHint)">Hint</button>
-      <button onclick="toolAction(toggleSwapMode)">Swap</button>
+      <button onclick="toolAction(startSwap)">Swap</button>
       <button onclick="toolAction(compactGrid)">Compact</button>
     </div>
   </div>
@@ -508,13 +508,12 @@ function toolAction(fn) {
   fn();
 }
 
-function toggleSwapMode() {
-  swapMode = !swapMode;
+function startSwap() {
+  swapMode = true;
   swapFirst = null;
   selected = null;
   render();
-  if (swapMode) showToast('Swap mode: tap two cells to swap');
-  else showToast('Swap mode off');
+  showToast('Tap two cells to swap');
 }
 
 function onSwapClick(idx) {
@@ -528,6 +527,8 @@ function onSwapClick(idx) {
   }
 
   if (swapFirst === idx) {
+    // Cancel swap
+    swapMode = false;
     swapFirst = null;
     selected = null;
     render();
@@ -550,6 +551,7 @@ function onSwapClick(idx) {
   stats.swapCount++;
   recordRows();
 
+  swapMode = false;
   swapFirst = null;
   selected = null;
   render();
@@ -596,6 +598,8 @@ function areAdjacent(i, j) {
 }
 
 function clearPair(i, j) {
+  const valI = cells[i].value;
+  const valJ = cells[j].value;
   cells[i].cleared = true;
   cells[j].cleared = true;
   moves++;
@@ -603,7 +607,7 @@ function clearPair(i, j) {
 
   // Track which rows were removed for undo
   const removedRows = removeEmptyRows();
-  history.push({ i, j, valI: cells[i].value, valJ: cells[j].value, removedRows });
+  history.push({ i, j, valI, valJ, removedRows });
   stats.pairsCleared++;
   recordRows();
 
