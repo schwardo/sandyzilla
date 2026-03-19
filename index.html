@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>SandyZilla</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  background: #1a1a2e;
+  color: #eee;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #16213e;
+  border-bottom: 2px solid #0f3460;
+}
+header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #e94560;
+}
+.score-display {
+  font-size: 16px;
+  color: #aaa;
+}
+.score-display span { color: #e94560; font-weight: 700; }
+
+.actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #16213e;
+  border-bottom: 1px solid #0f3460;
+}
+.actions button {
+  flex: 1;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.actions button:active { opacity: 0.7; }
+.btn-restart { background: #e94560; color: #fff; }
+.btn-action { background: #0f3460; color: #aaa; border: 1px solid #333 !important; }
+.btn-action.active { background: #533483; color: #fff; border-color: #533483 !important; }
+
+#grid-container {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px;
+}
+#grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+.cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  border-radius: 6px;
+  background: #0f3460;
+  color: #eee;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.1s;
+}
+.cell:active { transform: scale(0.92); }
+.cell.cleared {
+  background: transparent;
+  color: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+.cell.selected {
+  background: #e94560;
+  color: #fff;
+  transform: scale(1.05);
+}
+.cell.hint {
+  animation: hintPulse 0.6s ease-in-out 3;
+}
+@keyframes hintPulse {
+  0%, 100% { background: #0f3460; }
+  50% { background: #e94560; }
+}
+
+.win-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+.win-overlay h2 {
+  font-size: 36px;
+  color: #e94560;
+  margin-bottom: 12px;
+}
+.win-overlay p { color: #aaa; margin-bottom: 24px; font-size: 18px; }
+.win-overlay button {
+  padding: 14px 40px;
+  background: #e94560;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #533483;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 20;
+  opacity: 1;
+  transition: opacity 0.4s;
+}
+.toast.fade { opacity: 0; }
+
+.stats-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 20px 16px;
+}
+.stats-overlay h2 {
+  font-size: 24px;
+  color: #e94560;
+  margin-bottom: 16px;
+}
+.stats-overlay .stats-close {
+  padding: 10px 30px;
+  background: #e94560;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 16px;
+}
+.stats-section {
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 16px;
+}
+.stats-section h3 {
+  font-size: 14px;
+  color: #e94560;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.stat-card {
+  background: #16213e;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+.stat-card .stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #e94560;
+}
+.stat-card .stat-label {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 4px;
+}
+.batch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #16213e;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+.batch-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.batch-label {
+  flex: 1;
+  font-size: 13px;
+  color: #ccc;
+}
+.batch-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e94560;
+}
+.batch-badges {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.batch-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+.row-chart {
+  width: 100%;
+  height: 80px;
+  background: #16213e;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+.row-chart-bar {
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+  min-height: 2px;
+}
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SandyZilla</h1>
+  <div class="batch-badges" id="batch-badges"></div>
+  <div class="score-display">Moves: <span id="move-count">0</span></div>
+</header>
+
+<div class="actions">
+  <button class="btn-restart" onclick="restartGame()">New Game</button>
+  <button class="btn-action" id="btn-hint" onclick="showHint()">Hint</button>
+  <button class="btn-action" id="btn-undo" onclick="undoMove()">Undo</button>
+  <button class="btn-action" id="btn-swap" onclick="toggleSwapMode()">Swap</button>
+  <button class="btn-action" id="btn-compact" onclick="compactGrid()">Compact</button>
+  <button class="btn-action" id="btn-addrows" onclick="addRows()">Add Rows</button>
+  <button class="btn-action" id="btn-stats" onclick="showStats()">Stats</button>
+</div>
+
+<div id="grid-container">
+  <div id="grid"></div>
+</div>
+
+<script>
+const COLS = 10;
+const CELL_COLORS = [
+  '#0f3460', '#1a5c2a', '#5c1a4e', '#4a3b0f', '#1a3f5c',
+  '#5c2a1a', '#2a1a5c', '#3b5c0f', '#5c0f3b', '#0f5c4a',
+];
+let cells = [];       // flat array of {value, cleared, colorIdx}
+let selected = null;  // index of first selected cell
+let moves = 0;
+let history = [];     // for undo: [{i, j}] pairs of cleared cells + removed rows info
+let currentColorIdx = 0;
+let swapMode = false;
+let swapFirst = null;
+let stats = newStats();
+
+function newStats() {
+  return {
+    pairsCleared: 0,
+    undoCount: 0,
+    swapCount: 0,
+    compactCount: 0,
+    addRowsCount: 0,
+    hintCount: 0,
+    rowHistory: [],  // row count after each action
+  };
+}
+
+function recordRows() {
+  stats.rowHistory.push({ rows: Math.ceil(cells.length / COLS), colorIdx: currentColorIdx });
+}
+
+const STORAGE_KEY = 'sandyzilla_state';
+
+function saveState() {
+  const state = { cells, moves, history, currentColorIdx, stats };
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const state = JSON.parse(raw);
+    if (!Array.isArray(state.cells) || state.cells.length === 0) return false;
+    cells = state.cells;
+    moves = state.moves || 0;
+    history = state.history || [];
+    currentColorIdx = state.currentColorIdx || 0;
+    stats = state.stats || newStats();
+    return true;
+  } catch (e) { return false; }
+}
+
+function clearSavedState() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+}
+
+function initGame() {
+  cells = [];
+  selected = null;
+  moves = 0;
+  history = [];
+  document.getElementById('move-count').textContent = '0';
+
+  currentColorIdx = 0;
+  swapMode = false;
+  swapFirst = null;
+  const swapBtn = document.getElementById('btn-swap');
+  if (swapBtn) swapBtn.classList.remove('active');
+
+  stats = newStats();
+
+  // Generate 2 rows of random digits 1-9
+  for (let i = 0; i < COLS * 2; i++) {
+    cells.push({ value: Math.floor(Math.random() * 9) + 1, cleared: false, colorIdx: 0 });
+  }
+  recordRows();
+  saveState();
+  render();
+}
+
+function resumeGame() {
+  selected = null;
+  swapMode = false;
+  swapFirst = null;
+  document.getElementById('move-count').textContent = moves;
+
+  const swapBtn = document.getElementById('btn-swap');
+  if (swapBtn) swapBtn.classList.remove('active');
+  render();
+
+}
+
+function render() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  cells.forEach((cell, idx) => {
+    const div = document.createElement('div');
+    div.className = 'cell' + (cell.cleared ? ' cleared' : '') + (idx === selected ? ' selected' : '');
+    div.textContent = cell.cleared ? '' : cell.value;
+    if (!cell.cleared && idx !== selected) {
+      div.style.background = CELL_COLORS[cell.colorIdx % CELL_COLORS.length];
+    }
+    div.dataset.idx = idx;
+    if (!cell.cleared) {
+      div.addEventListener('click', () => onCellClick(idx));
+    }
+    grid.appendChild(div);
+  });
+
+  renderBatchBadges();
+
+  // Check win
+  if (cells.every(c => c.cleared)) {
+    showWin();
+  }
+}
+
+function renderBatchBadges() {
+  const container = document.getElementById('batch-badges');
+  const batches = {};
+  cells.forEach(c => {
+    if (c.cleared) return;
+    batches[c.colorIdx] = (batches[c.colorIdx] || 0) + 1;
+  });
+  container.innerHTML = Object.entries(batches)
+    .sort((a, b) => +a[0] - +b[0])
+    .map(([idx, count]) => {
+      const color = CELL_COLORS[+idx % CELL_COLORS.length];
+      return `<div class="batch-badge" style="background:${color}">${count}</div>`;
+    }).join('');
+}
+
+function onCellClick(idx) {
+  if (cells[idx].cleared) return;
+
+  if (swapMode) {
+    onSwapClick(idx);
+    return;
+  }
+
+  if (selected === null) {
+    selected = idx;
+    render();
+    return;
+  }
+
+  if (selected === idx) {
+    selected = null;
+    render();
+    return;
+  }
+
+  // Check if pair is valid
+  if (isValidPair(selected, idx)) {
+    clearPair(selected, idx);
+  } else {
+    // Select the new cell instead
+    selected = idx;
+    render();
+  }
+}
+
+function toggleSwapMode() {
+  swapMode = !swapMode;
+  swapFirst = null;
+  selected = null;
+  document.getElementById('btn-swap').classList.toggle('active', swapMode);
+  render();
+  if (swapMode) showToast('Swap mode: tap two cells to swap');
+}
+
+function onSwapClick(idx) {
+  if (cells[idx].cleared) return;
+
+  if (swapFirst === null) {
+    swapFirst = idx;
+    selected = idx;
+    render();
+    return;
+  }
+
+  if (swapFirst === idx) {
+    swapFirst = null;
+    selected = null;
+    render();
+    return;
+  }
+
+  // Perform the swap
+  const valA = cells[swapFirst].value;
+  const valB = cells[idx].value;
+  const colorA = cells[swapFirst].colorIdx;
+  const colorB = cells[idx].colorIdx;
+  cells[swapFirst].value = valB;
+  cells[swapFirst].colorIdx = colorB;
+  cells[idx].value = valA;
+  cells[idx].colorIdx = colorA;
+
+  moves++;
+  document.getElementById('move-count').textContent = moves;
+  history.push({ type: 'swap', i: swapFirst, j: idx, valI: valA, valJ: valB, colorI: colorA, colorJ: colorB });
+  stats.swapCount++;
+  recordRows();
+
+  swapFirst = null;
+  selected = null;
+  render();
+  saveState();
+
+}
+
+function isValidPair(i, j) {
+  const a = cells[i], b = cells[j];
+  if (a.cleared || b.cleared) return false;
+
+  // Values must match or sum to 10
+  if (a.value !== b.value && a.value + b.value !== 10) return false;
+
+  // Must be adjacent (skipping blanks) horizontally in same row,
+  // vertically in same column, or wrapping end-of-row to start-of-next
+  return areAdjacent(i, j);
+}
+
+function areAdjacent(i, j) {
+  if (i > j) [i, j] = [j, i];
+
+  // Check horizontal/wrap adjacency: next non-cleared cell in reading order
+  let next = i + 1;
+  while (next < cells.length && cells[next].cleared) next++;
+  if (next === j) return true;
+
+  // Check vertical adjacency: same column, next non-cleared cell below
+  const colI = i % COLS;
+  const colJ = j % COLS;
+  if (colI === colJ) {
+    let row = Math.floor(i / COLS) + 1;
+    const totalRows = Math.ceil(cells.length / COLS);
+    while (row < totalRows) {
+      const idx = row * COLS + colI;
+      if (idx < cells.length && !cells[idx].cleared) {
+        return idx === j;
+      }
+      row++;
+    }
+  }
+
+  return false;
+}
+
+function clearPair(i, j) {
+  cells[i].cleared = true;
+  cells[j].cleared = true;
+  moves++;
+  document.getElementById('move-count').textContent = moves;
+
+  // Track which rows were removed for undo
+  const removedRows = removeEmptyRows();
+  history.push({ i, j, valI: cells[i].value, valJ: cells[j].value, removedRows });
+  stats.pairsCleared++;
+  recordRows();
+
+  selected = null;
+  render();
+  saveState();
+
+}
+
+function removeEmptyRows() {
+  const totalRows = Math.ceil(cells.length / COLS);
+  const removedRows = []; // [{rowIdx, cells: [...]}] from bottom to top
+
+  for (let row = totalRows - 1; row >= 0; row--) {
+    const start = row * COLS;
+    const end = Math.min(start + COLS, cells.length);
+    const rowCells = cells.slice(start, end);
+    if (rowCells.every(c => c.cleared)) {
+      removedRows.push({ rowIdx: row, cells: rowCells });
+      cells.splice(start, end - start);
+    }
+  }
+  return removedRows;
+}
+
+function undoMove() {
+  if (history.length === 0) return;
+  const last = history.pop();
+
+  if (last.type === 'swap') {
+    // Reverse the swap
+    cells[last.i].value = last.valI;
+    cells[last.i].colorIdx = last.colorI;
+    cells[last.j].value = last.valJ;
+    cells[last.j].colorIdx = last.colorJ;
+  } else {
+    // Restore removed rows (they were stored bottom-to-top, restore top-to-bottom)
+    for (let k = last.removedRows.length - 1; k >= 0; k--) {
+      const rr = last.removedRows[k];
+      const start = rr.rowIdx * COLS;
+      cells.splice(start, 0, ...rr.cells);
+    }
+
+    // Uncleared the pair
+    cells[last.i].cleared = false;
+    cells[last.j].cleared = false;
+    cells[last.i].value = last.valI;
+    cells[last.j].value = last.valJ;
+  }
+
+  moves--;
+  document.getElementById('move-count').textContent = moves;
+  selected = null;
+  stats.undoCount++;
+  recordRows();
+
+  render();
+  saveState();
+}
+
+function addRows() {
+  const remaining = cells.filter(c => !c.cleared);
+  if (remaining.length === 0) return;
+
+  // Append copies of remaining values as new cells with next color
+  currentColorIdx++;
+  const newCells = remaining.map(c => ({ value: c.value, cleared: false, colorIdx: currentColorIdx }));
+  cells.push(...newCells);
+
+  const addedRows = Math.ceil(newCells.length / COLS);
+
+  // Clear undo history since the grid structure changed significantly
+  history = [];
+  selected = null;
+  stats.addRowsCount++;
+  recordRows();
+
+  render();
+  saveState();
+  showToast(`Added ${addedRows} row${addedRows !== 1 ? 's' : ''} (${newCells.length} numbers)`);
+
+  // Scroll to bottom to show new rows
+  const container = document.getElementById('grid-container');
+  container.scrollTop = container.scrollHeight;
+}
+
+function compactGrid() {
+  // Remove all cleared cells, leaving only active ones packed contiguously
+  const remaining = cells.filter(c => !c.cleared);
+  if (remaining.length === cells.length) {
+    showToast('Nothing to compact');
+    return;
+  }
+  const removed = cells.length - remaining.length;
+  cells = remaining;
+
+  // Clear undo history since indices have all shifted
+  history = [];
+  selected = null;
+  swapFirst = null;
+  stats.compactCount++;
+  recordRows();
+
+  render();
+  saveState();
+
+  showToast(`Compacted: removed ${removed} empty cell${removed !== 1 ? 's' : ''}`);
+}
+
+function showToast(msg) {
+  document.querySelectorAll('.toast').forEach(e => e.remove());
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.classList.add('fade'), 1500);
+  setTimeout(() => el.remove(), 1900);
+}
+
+function findAnyValidPair() {
+  const active = [];
+  cells.forEach((c, idx) => { if (!c.cleared) active.push(idx); });
+
+  for (let a = 0; a < active.length; a++) {
+    for (let b = a + 1; b < active.length; b++) {
+      if (isValidPair(active[a], active[b])) {
+        return [active[a], active[b]];
+      }
+    }
+  }
+  return null;
+}
+
+function showHint() {
+  const pair = findAnyValidPair();
+  if (!pair) { showToast('No moves available'); return; }
+  stats.hintCount++;
+  saveState();
+
+  selected = null;
+  render();
+
+  const allCellDivs = document.querySelectorAll('#grid .cell');
+  allCellDivs[pair[0]].style.background = '';
+  allCellDivs[pair[1]].style.background = '';
+  allCellDivs[pair[0]].classList.add('hint');
+  allCellDivs[pair[1]].classList.add('hint');
+}
+
+
+function showStats() {
+  document.querySelectorAll('.stats-overlay').forEach(e => e.remove());
+  const overlay = document.createElement('div');
+  overlay.className = 'stats-overlay';
+
+  const totalActive = cells.filter(c => !c.cleared).length;
+  const totalCells = cells.length;
+  const totalCleared = totalCells - totalActive;
+  const totalRows = Math.ceil(totalCells / COLS);
+
+  // Row history chart
+  let chartHTML = '';
+  const rh = stats.rowHistory;
+  if (rh.length > 1) {
+    const maxRows = Math.max(...rh.map(e => e.rows));
+    chartHTML = '<div class="row-chart">' +
+      rh.map(e => {
+        const color = CELL_COLORS[e.colorIdx % CELL_COLORS.length];
+        return `<div class="row-chart-bar" style="height:${Math.round((e.rows / maxRows) * 100)}%;background:${color}"></div>`;
+      }).join('') +
+      '</div>';
+  }
+
+  overlay.innerHTML = `
+    <h2>Statistics</h2>
+    <div class="stats-section">
+      <h3>Grid</h3>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value">${totalRows}</div><div class="stat-label">Rows</div></div>
+        <div class="stat-card"><div class="stat-value">${totalActive}</div><div class="stat-label">Active Cells</div></div>
+        <div class="stat-card"><div class="stat-value">${totalCleared}</div><div class="stat-label">Cleared Cells</div></div>
+        <div class="stat-card"><div class="stat-value">${moves}</div><div class="stat-label">Moves</div></div>
+      </div>
+    </div>
+    <div class="stats-section">
+      <h3>Tools Used</h3>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value">${stats.pairsCleared}</div><div class="stat-label">Pairs Cleared</div></div>
+        <div class="stat-card"><div class="stat-value">${stats.undoCount}</div><div class="stat-label">Undos</div></div>
+        <div class="stat-card"><div class="stat-value">${stats.swapCount}</div><div class="stat-label">Swaps</div></div>
+        <div class="stat-card"><div class="stat-value">${stats.compactCount}</div><div class="stat-label">Compacts</div></div>
+        <div class="stat-card"><div class="stat-value">${stats.addRowsCount}</div><div class="stat-label">Add Rows</div></div>
+        <div class="stat-card"><div class="stat-value">${stats.hintCount}</div><div class="stat-label">Hints</div></div>
+      </div>
+    </div>
+    ${rh.length > 1 ? `<div class="stats-section"><h3>Row Count Over Time</h3>${chartHTML}</div>` : ''}
+    <button class="stats-close" onclick="this.parentElement.remove()">Close</button>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function showWin() {
+  clearSavedState();
+  const overlay = document.createElement('div');
+  overlay.className = 'win-overlay';
+  overlay.innerHTML = `
+    <h2>You Win!</h2>
+    <p>Solved in ${moves} moves</p>
+    <button onclick="this.parentElement.remove(); restartGame();">Play Again</button>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function restartGame() {
+  if (findAnyValidPair() && !confirm('Start a new game? Current progress will be lost.')) return;
+  document.querySelectorAll('.win-overlay').forEach(e => e.remove());
+  initGame();
+}
+
+if (loadState()) {
+  resumeGame();
+} else {
+  initGame();
+}
+</script>
+</body>
+</html>
