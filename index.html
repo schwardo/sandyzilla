@@ -109,7 +109,7 @@ header h1 {
 }
 #grid {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(9, 1fr);
   gap: 4px;
   max-width: 500px;
   margin: 0 auto;
@@ -343,7 +343,7 @@ header h1 {
 </div>
 
 <script>
-const COLS = 8;
+const COLS = 9;
 const CELL_COLORS = [
   '#4a9eff', '#4ecd6e', '#d65cb8', '#d4a33e', '#3ec4e8',
   '#e07040', '#9a6ef5', '#8cc63f', '#e05080', '#40d9a0',
@@ -413,7 +413,7 @@ function initGame() {
   stats = newStats();
 
   // Generate 2 rows of random digits 1-9
-  for (let i = 0; i < COLS * 2; i++) {
+  for (let i = 0; i < COLS * 3; i++) {
     cells.push({ value: Math.floor(Math.random() * 9) + 1, cleared: false, colorIdx: 0 });
   }
   recordRows();
