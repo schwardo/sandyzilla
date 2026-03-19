@@ -338,6 +338,7 @@ header h1 {
     <div class="tools-menu" id="tools-menu">
       <button onclick="toolAction(showHint)">Hint</button>
       <button onclick="toolAction(startSwap)">Swap</button>
+      <button onclick="toolAction(startBlast)">Blast</button>
     </div>
   </div>
   <button class="btn-action" id="btn-stats" onclick="showStats()">Stats</button>
@@ -360,6 +361,7 @@ let history = [];     // for undo: [{i, j}] pairs of cleared cells + removed row
 let currentColorIdx = 0;
 let swapMode = false;
 let swapFirst = null;
+let blastMode = false;
 let stats = newStats();
 
 function newStats() {
@@ -414,6 +416,7 @@ function initGame() {
   currentColorIdx = 0;
   swapMode = false;
   swapFirst = null;
+  blastMode = false;
 
   stats = newStats();
 
@@ -478,6 +481,11 @@ function renderBatchBadges() {
 
 function onCellClick(idx) {
   if (cells[idx].cleared) return;
+
+  if (blastMode) {
+    doBlast(idx);
+    return;
+  }
 
   if (swapMode) {
     onSwapClick(idx);
@@ -567,6 +575,47 @@ function onSwapClick(idx) {
 
 }
 
+function startBlast() {
+  blastMode = true;
+  selected = null;
+  render();
+  showToast('Tap a cell to blast a 3x3 area');
+}
+
+function doBlast(idx) {
+  const row = Math.floor(idx / COLS);
+  const col = idx % COLS;
+  const blasted = [];
+
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      const r = row + dr;
+      const c = col + dc;
+      if (r < 0 || c < 0 || c >= COLS) continue;
+      const i = r * COLS + c;
+      if (i < cells.length && !cells[i].cleared) {
+        blasted.push({ idx: i, value: cells[i].value, colorIdx: cells[i].colorIdx });
+        cells[i].cleared = true;
+      }
+    }
+  }
+
+  if (blasted.length > 0) {
+    moves++;
+    document.getElementById('move-count').textContent = moves;
+    const removedRows = removeEmptyRows();
+    history.push({ type: 'blast', blasted, removedRows });
+    stats.pairsCleared += blasted.length;
+    recordRows();
+  }
+
+  blastMode = false;
+  selected = null;
+  render();
+  saveState();
+  if (blasted.length > 0) hapticTap();
+}
+
 function isValidPair(i, j) {
   const a = cells[i], b = cells[j];
   if (a.cleared || b.cleared) return false;
@@ -654,11 +703,23 @@ function undoMove() {
   const last = history.pop();
 
   if (last.type === 'swap') {
-    // Reverse the swap
     cells[last.i].value = last.valI;
     cells[last.i].colorIdx = last.colorI;
     cells[last.j].value = last.valJ;
     cells[last.j].colorIdx = last.colorJ;
+  } else if (last.type === 'blast') {
+    // Restore removed rows first
+    for (let k = last.removedRows.length - 1; k >= 0; k--) {
+      const rr = last.removedRows[k];
+      const start = rr.rowIdx * COLS;
+      cells.splice(start, 0, ...rr.cells);
+    }
+    // Restore blasted cells
+    for (const b of last.blasted) {
+      cells[b.idx].cleared = false;
+      cells[b.idx].value = b.value;
+      cells[b.idx].colorIdx = b.colorIdx;
+    }
   } else {
     // Restore removed rows (they were stored bottom-to-top, restore top-to-bottom)
     for (let k = last.removedRows.length - 1; k >= 0; k--) {
@@ -666,7 +727,6 @@ function undoMove() {
       const start = rr.rowIdx * COLS;
       cells.splice(start, 0, ...rr.cells);
     }
-
     // Uncleared the pair
     cells[last.i].cleared = false;
     cells[last.j].cleared = false;
