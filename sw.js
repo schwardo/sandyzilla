@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sandyzilla-v1';
+const CACHE_NAME = 'sandyzilla-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -19,12 +19,14 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   e.respondWith(
-    fetch(e.request)
-      .then(response => {
+    caches.match(e.request).then(cached => {
+      // Serve from cache immediately, update cache in background
+      const fetchPromise = fetch(e.request).then(response => {
         const clone = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
         return response;
-      })
-      .catch(() => caches.match(e.request))
+      });
+      return cached || fetchPromise;
+    })
   );
 });
