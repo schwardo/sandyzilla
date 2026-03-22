@@ -844,10 +844,35 @@ function showHint() {
   render();
 
   const allCellDivs = document.querySelectorAll('#grid .cell');
-  allCellDivs[pair[0]].style.color = '';
-  allCellDivs[pair[1]].style.color = '';
-  allCellDivs[pair[0]].classList.add('hint');
-  allCellDivs[pair[1]].classList.add('hint');
+  const container = document.getElementById('grid-container');
+  const cell0 = allCellDivs[pair[0]];
+  const cell1 = allCellDivs[pair[1]];
+
+  // Scroll to show hint cells if they're not visible
+  const containerRect = container.getBoundingClientRect();
+  const rect0 = cell0.getBoundingClientRect();
+  const rect1 = cell1.getBoundingClientRect();
+  const visible0 = rect0.top >= containerRect.top && rect0.bottom <= containerRect.bottom;
+  const visible1 = rect1.top >= containerRect.top && rect1.bottom <= containerRect.bottom;
+
+  if (!visible0 || !visible1) {
+    // Scroll so both cells are visible; if they're far apart, prefer the first one
+    const minTop = Math.min(cell0.offsetTop, cell1.offsetTop);
+    const maxBottom = Math.max(cell0.offsetTop + cell0.offsetHeight, cell1.offsetTop + cell1.offsetHeight);
+    const span = maxBottom - minTop;
+    if (span <= container.clientHeight) {
+      // Both fit: center them together
+      container.scrollTo({ top: minTop - (container.clientHeight - span) / 2, behavior: 'smooth' });
+    } else {
+      // Too far apart: scroll to show the first hint cell
+      cell0.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  cell0.style.color = '';
+  cell1.style.color = '';
+  cell0.classList.add('hint');
+  cell1.classList.add('hint');
 }
 
 
