@@ -645,7 +645,8 @@ function areAdjacent(i, j) {
     while (row < totalRows) {
       const idx = row * COLS + colI;
       if (idx < cells.length && !cells[idx].cleared) {
-        return idx === j;
+        if (idx === j) return true;
+        break;
       }
       row++;
     }
