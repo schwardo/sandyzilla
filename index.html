@@ -105,7 +105,7 @@ header h1 {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 8px;
+  padding: 8px 8px 10px;
 }
 #grid {
   display: grid;
@@ -940,7 +940,7 @@ function showWin() {
 }
 
 function restartGame() {
-  if (findAnyValidPair() && !confirm('Start a new game? Current progress will be lost.')) return;
+  if (!confirm('Start a new game? Current progress will be lost.')) return;
   document.querySelectorAll('.win-overlay').forEach(e => e.remove());
   initGame();
 }
