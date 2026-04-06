@@ -339,6 +339,7 @@ header h1 {
       <button onclick="toolAction(showHint)">Hint</button>
       <button onclick="toolAction(startSwap)">Swap</button>
       <button onclick="toolAction(startBlast)">Blast</button>
+      <button onclick="toolAction(startMath)">Math</button>
     </div>
   </div>
   <button class="btn-action" id="btn-stats" onclick="showStats()">Stats</button>
@@ -362,6 +363,9 @@ let currentColorIdx = 0;
 let swapMode = false;
 let swapFirst = null;
 let blastMode = false;
+let mathMode = false;
+let mathFirst = null;
+let mathSecond = null;
 let stats = newStats();
 
 function newStats() {
@@ -369,6 +373,7 @@ function newStats() {
     pairsCleared: 0,
     undoCount: 0,
     swapCount: 0,
+    mathCount: 0,
     compactCount: 0,
     addRowsCount: 0,
     hintCount: 0,
@@ -417,6 +422,9 @@ function initGame() {
   swapMode = false;
   swapFirst = null;
   blastMode = false;
+  mathMode = false;
+  mathFirst = null;
+  mathSecond = null;
 
   stats = newStats();
 
@@ -433,6 +441,9 @@ function resumeGame() {
   selected = null;
   swapMode = false;
   swapFirst = null;
+  mathMode = false;
+  mathFirst = null;
+  mathSecond = null;
   document.getElementById('move-count').textContent = moves;
 
   render();
@@ -444,9 +455,10 @@ function render() {
   grid.innerHTML = '';
   cells.forEach((cell, idx) => {
     const div = document.createElement('div');
-    div.className = 'cell' + (cell.cleared ? ' cleared' : '') + (idx === selected ? ' selected' : '');
+    const isMathSelected = mathMode && (idx === mathFirst || idx === mathSecond);
+    div.className = 'cell' + (cell.cleared ? ' cleared' : '') + (idx === selected || isMathSelected ? ' selected' : '');
     div.textContent = cell.cleared ? '' : cell.value;
-    if (!cell.cleared && idx !== selected) {
+    if (!cell.cleared && idx !== selected && !isMathSelected) {
       div.style.color = CELL_COLORS[cell.colorIdx % CELL_COLORS.length];
     }
     div.dataset.idx = idx;
@@ -489,6 +501,11 @@ function onCellClick(idx) {
 
   if (swapMode) {
     onSwapClick(idx);
+    return;
+  }
+
+  if (mathMode) {
+    onMathClick(idx);
     return;
   }
 
@@ -616,6 +633,96 @@ function doBlast(idx) {
   if (blasted.length > 0) hapticTap();
 }
 
+function startMath() {
+  mathMode = true;
+  mathFirst = null;
+  mathSecond = null;
+  selected = null;
+  render();
+  showToast('Tap three adjacent cells where A+B=C or B+C=A');
+}
+
+function onMathClick(idx) {
+  if (cells[idx].cleared) return;
+
+  if (mathFirst === null) {
+    mathFirst = idx;
+    selected = idx;
+    render();
+    return;
+  }
+
+  if (mathFirst === idx) {
+    // Cancel
+    mathMode = false;
+    mathFirst = null;
+    mathSecond = null;
+    selected = null;
+    render();
+    return;
+  }
+
+  if (mathSecond === null) {
+    // Verify first and second are adjacent
+    if (!areAdjacent(mathFirst, idx)) {
+      showToast('Cells must be adjacent');
+      return;
+    }
+    mathSecond = idx;
+    selected = idx;
+    render();
+    return;
+  }
+
+  if (mathSecond === idx) {
+    // Go back to having just first selected
+    mathSecond = null;
+    selected = mathFirst;
+    render();
+    return;
+  }
+
+  // Verify second and third are adjacent
+  if (!areAdjacent(mathSecond, idx)) {
+    showToast('Cells must be adjacent');
+    return;
+  }
+
+  const a = cells[mathFirst].value;
+  const b = cells[mathSecond].value;
+  const c = cells[idx].value;
+
+  if (a + b === c || b + c === a) {
+    // Valid math — clear all three
+    const cleared = [
+      { idx: mathFirst, value: cells[mathFirst].value, colorIdx: cells[mathFirst].colorIdx },
+      { idx: mathSecond, value: cells[mathSecond].value, colorIdx: cells[mathSecond].colorIdx },
+      { idx: idx, value: cells[idx].value, colorIdx: cells[idx].colorIdx },
+    ];
+    cells[mathFirst].cleared = true;
+    cells[mathSecond].cleared = true;
+    cells[idx].cleared = true;
+
+    moves++;
+    document.getElementById('move-count').textContent = moves;
+    const removedRows = removeEmptyRows();
+    history.push({ type: 'math', cleared, removedRows });
+    stats.pairsCleared += 3;
+    stats.mathCount++;
+    recordRows();
+    hapticTap();
+  } else {
+    showToast('A+B must equal C, or B+C must equal A');
+  }
+
+  mathMode = false;
+  mathFirst = null;
+  mathSecond = null;
+  selected = null;
+  render();
+  saveState();
+}
+
 function isValidPair(i, j) {
   const a = cells[i], b = cells[j];
   if (a.cleared || b.cleared) return false;
@@ -720,6 +827,19 @@ function undoMove() {
       cells[b.idx].cleared = false;
       cells[b.idx].value = b.value;
       cells[b.idx].colorIdx = b.colorIdx;
+    }
+  } else if (last.type === 'math') {
+    // Restore removed rows first
+    for (let k = last.removedRows.length - 1; k >= 0; k--) {
+      const rr = last.removedRows[k];
+      const start = rr.rowIdx * COLS;
+      cells.splice(start, 0, ...rr.cells);
+    }
+    // Restore math-cleared cells
+    for (const c of last.cleared) {
+      cells[c.idx].cleared = false;
+      cells[c.idx].value = c.value;
+      cells[c.idx].colorIdx = c.colorIdx;
     }
   } else {
     // Restore removed rows (they were stored bottom-to-top, restore top-to-bottom)
@@ -916,6 +1036,7 @@ function showStats() {
         <div class="stat-card"><div class="stat-value">${stats.pairsCleared}</div><div class="stat-label">Pairs Cleared</div></div>
         <div class="stat-card"><div class="stat-value">${stats.undoCount}</div><div class="stat-label">Undos</div></div>
         <div class="stat-card"><div class="stat-value">${stats.swapCount}</div><div class="stat-label">Swaps</div></div>
+        <div class="stat-card"><div class="stat-value">${stats.mathCount}</div><div class="stat-label">Maths</div></div>
         <div class="stat-card"><div class="stat-value">${stats.compactCount}</div><div class="stat-label">Compacts</div></div>
         <div class="stat-card"><div class="stat-value">${stats.addRowsCount}</div><div class="stat-label">Add Rows</div></div>
         <div class="stat-card"><div class="stat-value">${stats.hintCount}</div><div class="stat-label">Hints</div></div>
